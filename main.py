@@ -8,33 +8,37 @@ import datetime
 import parser
 from contextlib import suppress
 from aiogram.exceptions import TelegramBadRequest
+from apscheduler.schedulers.asyncio import AsyncIOScheduler
 
-# Твой токен
+
 TOKEN = config.TOKEN
 
 logging.basicConfig(level=logging.INFO)
 
+scheduler = AsyncIOScheduler()
 
 bot = Bot(token=TOKEN)
 dp = Dispatcher()
 
 schedule = parser.load_and_parse_schedule()
 
-# функція таймеру видалення для повідомлень
+chat_ids= []
+
 async def delete_later(message, time):
     await asyncio.sleep(time)
     with suppress(TelegramBadRequest):
         await message.delete()
 
-# /start
+
 @dp.message(Command("start"))
 async def cmd_start(message: types.Message):
+    chat_ids.append(message.chat.id)
     if message.chat.type == 'private':
         await message.answer("Привет! Я бот с расписанием. Добавь меня в группу своей группы!")
     else:
         await message.answer("Привет всем! Я теперь в чате. Пишите /today, чтобы узнать пары.")
 
-# /today -- Пари на сьогодні
+
 @dp.message(Command("today"), F.chat.type.in_({'group', 'supergroup'}))
 async def cmd_today_group(message: types.Message):
     data = datetime.datetime.now()
@@ -44,8 +48,31 @@ async def cmd_today_group(message: types.Message):
     asyncio.create_task(delete_later(message_bot, 120))
     asyncio.create_task(delete_later(message, 120))
 
+
+async def send_morning_schedule():
+    now = datetime.datetime.now()
+    date_str = now.strftime("%d.%m.%Y")
+
+    lessons = parser.get_lessons_by_date(schedule, date_str)
+
+    if "расписания нет" in lessons:
+        return
+    for id in chat_ids:
+        await bot.send_message(chat_id=id,
+            text=f"☀️ Доброе утро! <b>Расписание на сегодня:</b>\n\n{lessons}",
+            parse_mode="HTML")
+
 async def main():
     print("Бот запущен...")
+    scheduler.add_job(
+        send_morning_schedule,
+        trigger='cron',
+        hour=9,
+        minute=0,
+        day_of_week='mon-fri'
+    )
+
+    scheduler.start()
     await dp.start_polling(bot)
 
 
