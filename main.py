@@ -1,6 +1,5 @@
 import asyncio
 import logging
-
 import config
 from aiogram.utils.keyboard import InlineKeyboardBuilder, ReplyKeyboardBuilder
 from aiogram import Bot, Dispatcher, types, F
@@ -66,12 +65,10 @@ def get_commands_keyboard():
 
 def get_week_dates():
     now = datetime.datetime.now(TZ_UKRAINE)
-    # now.weekday(): 0 = Понедельник, 6 = Воскресенье
-    # Отнимаем от текущей даты номер дня недели, чтобы получить Понедельник
     start_of_week = now - datetime.timedelta(days=now.weekday())
 
     week_dates = []
-    for i in range(5):  # 5 дней (Пн-Пт)
+    for i in range(5):
         day = start_of_week + datetime.timedelta(days=i)
         week_dates.append(day.strftime("%d.%m.%Y"))
 
@@ -107,16 +104,18 @@ async def cmd_week(message: types.Message):
 
     text = f"📅 <b>Розклад на тиждень</b>\nДата: {date_str} (День {day_index + 1})\n\n{lessons}"
 
-    await message.answer(
+    message_bot = await message.answer(
         text,
         reply_markup=get_week_keyboard(day_index),
         parse_mode="HTML"
     )
 
+    asyncio.create_task(delete_later(message_bot, 180))
+    asyncio.create_task(delete_later(message, 50))
+
 
 @dp.callback_query(F.data.startswith("week_"))
 async def on_week_click(callback: types.CallbackQuery):
-    # Парсим индекс из строки "week_1" -> int(1)
     day_index = int(callback.data.split("_")[1])
 
     week_dates = get_week_dates()
@@ -126,27 +125,31 @@ async def on_week_click(callback: types.CallbackQuery):
 
     new_text = f"📅 <b>Розклад на тиждень</b>\nДата: {date_str}\n\n{lessons}"
 
-    # Пытаемся отредактировать сообщение
-    # suppress нужен, если пользователь нажмет на тот же день (Telegram выдаст ошибку, что текст не изменился)
     with suppress(TelegramBadRequest):
         await callback.message.edit_text(
             new_text,
-            reply_markup=get_week_keyboard(day_index),  # Обновляем кнопки (перемещаем точку)
+            reply_markup=get_week_keyboard(day_index),
             parse_mode="HTML"
         )
 
-    # Обязательно отвечаем серверу, чтобы кнопка перестала мигать
     await callback.answer()
 
 
 @dp.message(Command("start"))
 async def cmd_start(message: types.Message):
     keyboard = get_commands_keyboard()
+
     await save_chat(message.chat.id)
+
     if message.chat.type == 'private':
-        await message.answer("Привіт! Я бот с розкладом. Додай мене в группу!")
+        message_bot = await message.answer("Привіт! Я бот с розкладом. Додай мене в группу!", parse_mode=ParseMode.HTML)
     else:
-        await message.answer("Привіт усім! Я тепер у чаті. Пиши /today, щоб дізнатися які сьогодні пари.", reply_markup=keyboard)
+        message_bot = await message.answer("Привіт усім! Я тепер у чаті. Пишіть /today, щоб дізнатися які сьогодні пари, /week щоб дізнатися на весь тиждень або просто користуйтеся кнопками.", reply_markup=keyboard)
+
+
+    asyncio.create_task(delete_later(message_bot, 100))
+    asyncio.create_task(delete_later(message, 100))
+
 
 @dp.message(F.text == "📅 На сьогодні")
 @dp.message(Command("today"), F.chat.type.in_({'group', 'supergroup'}))
@@ -158,8 +161,8 @@ async def cmd_today_group(message: types.Message):
 
     message_bot = await message.reply(response_text, parse_mode=ParseMode.HTML)
 
-    asyncio.create_task(delete_later(message_bot, 120))
-    asyncio.create_task(delete_later(message, 120))
+    asyncio.create_task(delete_later(message_bot, 100))
+    asyncio.create_task(delete_later(message, 100))
 
 
 async def send_morning_schedule():
@@ -174,9 +177,10 @@ async def send_morning_schedule():
     current_chats = await load_chats()
 
     for id in current_chats:
-        await bot.send_message(chat_id=id,
+        message_bot = await bot.send_message(chat_id=id,
             text=f"☀️ Доброго ранку! <b>Розклад на сьогодні:</b>\n\n{lessons}",
             parse_mode="HTML")
+    asyncio.create_task(delete_later(message_bot, 100))
 
 
 async def main():
