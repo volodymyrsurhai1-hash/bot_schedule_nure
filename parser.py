@@ -53,8 +53,8 @@ def load_and_parse_schedule():
             for cell in subject_cells:
                 colspan = int(cell.get("colspan", 1))
                 content = cell.get_text(" ", strip=True)
-                has_lesson = content and content != "&nbsp" and len(content) > 1
 
+                has_lesson = content and content != "&nbsp" and len(content) > 1
                 if has_lesson:
                     for i in range(colspan):
                         if (current_week_index + i) < len(current_day_dates):
@@ -71,10 +71,7 @@ def load_and_parse_schedule():
 
 
 def get_lessons_by_date(schedule_data, target_date):
-    """
-    Принимает словарь расписания и дату (строку).
-    Возвращает отформатированную строку с уроками.
-    """
+
     # 1. Проверяем, есть ли такая дата в словаре
     if target_date not in schedule_data:
         return f"📅 На дату {target_date} Розкладу нема (або дата некорректна)."
