@@ -65,8 +65,8 @@ async def main():
     scheduler.add_job(
         send_morning_schedule,
         trigger='cron',
-        hour=9,
-        minute=0,
+        hour=19,
+        minute=40,
         day_of_week='mon-fri'
     )
 
