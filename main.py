@@ -6,6 +6,9 @@ from aiogram.filters import Command
 from aiogram.enums import ParseMode
 import datetime
 import parser
+import json
+import os
+import aiofiles
 from contextlib import suppress
 from aiogram.exceptions import TelegramBadRequest
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
@@ -13,6 +16,8 @@ import pytz
 
 
 logging.basicConfig(level=logging.INFO)
+
+CHATS_FILE = "chats.json"
 
 scheduler = AsyncIOScheduler()
 schedule = parser.load_and_parse_schedule()
@@ -23,7 +28,26 @@ TOKEN = config.TOKEN
 bot = Bot(token=TOKEN)
 dp = Dispatcher()
 
-chat_ids= []
+async def load_chats():
+    if not os.path.exists(CHATS_FILE):
+        return []
+    try:
+        with open(CHATS_FILE, "r", encoding="utf-8") as f:
+            return json.load(f)
+    except (json.JSONDecodeError, ValueError):
+        return []
+
+
+async def save_chat(chat_id):
+    """Асинхронно добавляет ID"""
+    current_chats = await load_chats()  # Ждем чтения
+
+    if chat_id not in current_chats:
+        current_chats.append(chat_id)
+        # Записываем обновленный список
+        async with aiofiles.open(CHATS_FILE, mode='w', encoding='utf-8') as f:
+            await f.write(json.dumps(current_chats, ensure_ascii=False))
+        logging.info(f"Добавлен новый чат: {chat_id}")
 
 async def delete_later(message, time):
     await asyncio.sleep(time)
@@ -33,7 +57,7 @@ async def delete_later(message, time):
 
 @dp.message(Command("start"))
 async def cmd_start(message: types.Message):
-    chat_ids.append(message.chat.id)
+    await save_chat(message.chat.id)
     if message.chat.type == 'private':
         await message.answer("Привіт! Я бот с розкладом. Додай мене в группу!")
     else:
@@ -57,14 +81,11 @@ async def send_morning_schedule():
     lessons = parser.get_lessons_by_date(schedule, date_str)
 
     if "Розкладу нема" in lessons or 'Пар нема' in lessons:
-        print(chat_ids)
+        return
 
-        await bot.send_message('1022062167',
-                               text=f"☀️ Доброго ранку! <b>Розклад на сьогодні:</b>\n\n{lessons}",
-                               parse_mode="HTML")
+    current_chats = await load_chats()
 
-
-    for id in chat_ids:
+    for id in current_chats:
         await bot.send_message(chat_id=id,
             text=f"☀️ Доброго ранку! <b>Розклад на сьогодні:</b>\n\n{lessons}",
             parse_mode="HTML")
@@ -75,8 +96,8 @@ async def main():
     scheduler.add_job(
         send_morning_schedule,
         trigger='cron',
-        hour=20,
-        minute=15,
+        hour=9,
+        minute=0,
         day_of_week='mon-fri',
         timezone = TZ_UKRAINE
     )

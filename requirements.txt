@@ -4,3 +4,4 @@ APScheduler
 aiogram
 dotenv
 pytz
+aiofiles
