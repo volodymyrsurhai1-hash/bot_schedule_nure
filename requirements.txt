@@ -2,3 +2,5 @@ requests
 BS4
 APScheduler
 aiogram
+dotenv
+pytz

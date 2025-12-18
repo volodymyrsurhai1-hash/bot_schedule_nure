@@ -11,10 +11,13 @@ from aiogram.exceptions import TelegramBadRequest
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 
 
+
 logging.basicConfig(level=logging.INFO)
 
 scheduler = AsyncIOScheduler()
 schedule = parser.load_and_parse_schedule()
+
+
 
 TOKEN = config.TOKEN
 bot = Bot(token=TOKEN)
@@ -54,11 +57,15 @@ async def send_morning_schedule():
     lessons = parser.get_lessons_by_date(schedule, date_str)
 
     if "Розкладу нема" in lessons or 'Пар нема' in lessons:
-        return
+        print(chat_ids)
+        await bot.send_message(1022062167, text="test")
+
+
     for id in chat_ids:
         await bot.send_message(chat_id=id,
             text=f"☀️ Доброго ранку! <b>Розклад на сьогодні:</b>\n\n{lessons}",
             parse_mode="HTML")
+
 
 async def main():
     print("Бот запущений...")
@@ -66,8 +73,8 @@ async def main():
         send_morning_schedule,
         trigger='cron',
         hour=19,
-        minute=40,
-        day_of_week='mon-fri'
+        minute=54,
+        day_of_week='mon-fri',
     )
 
     scheduler.start()
