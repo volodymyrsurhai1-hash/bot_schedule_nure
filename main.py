@@ -9,14 +9,14 @@ import parser
 from contextlib import suppress
 from aiogram.exceptions import TelegramBadRequest
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
-
+import pytz
 
 
 logging.basicConfig(level=logging.INFO)
 
 scheduler = AsyncIOScheduler()
 schedule = parser.load_and_parse_schedule()
-
+TZ_UKRAINE = pytz.timezone('Europe/Kiev')
 
 
 TOKEN = config.TOKEN
@@ -58,7 +58,10 @@ async def send_morning_schedule():
 
     if "Розкладу нема" in lessons or 'Пар нема' in lessons:
         print(chat_ids)
-        await bot.send_message(1022062167, text="test")
+
+        await bot.send_message('1022062167',
+                               text=f"☀️ Доброго ранку! <b>Розклад на сьогодні:</b>\n\n{lessons}",
+                               parse_mode="HTML")
 
 
     for id in chat_ids:
@@ -72,9 +75,10 @@ async def main():
     scheduler.add_job(
         send_morning_schedule,
         trigger='cron',
-        hour=19,
-        minute=54,
+        hour=20,
+        minute=15,
         day_of_week='mon-fri',
+        timezone = TZ_UKRAINE
     )
 
     scheduler.start()
