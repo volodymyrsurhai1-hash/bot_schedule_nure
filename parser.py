@@ -5,7 +5,7 @@ from config import URLS
 def load_and_parse_schedule():
     """
     1. Скачивает страницу.
-    2. Парсит HTML.
+    2. Парсит XLSX.
     3. Возвращает словарь { "dd.mm.yyyy": { "time": "lesson" } }
     """
     url = 'https://cist.nure.ua/ias/app/tt/f?p=778:201:3927467815032133:::201:P201_FIRST_DATE,P201_LAST_DATE,P201_GROUP,P201_POTOK:01.09.2025,31.01.2026,11870682,0'
@@ -31,7 +31,6 @@ def load_and_parse_schedule():
         first_cell = row.find("td")
         if not first_cell: continue
 
-        # --- Даты ---
         if "date" in first_cell.get("class", []) and first_cell.get("colspan") == "2":
             date_cells = row.find_all("td")[1:]
             current_day_dates = [d.get_text(strip=True) for d in date_cells]
@@ -40,7 +39,6 @@ def load_and_parse_schedule():
                     schedule_map[date] = {}
             continue
 
-        # --- Пары ---
         if "left" in first_cell.get("class", []):
             cells = row.find_all("td")
             if len(cells) < 3: continue
@@ -88,6 +86,10 @@ def get_lessons_by_date(schedule_data, target_date):
 
     for time, subject in lessons.items():
         subject_name = subject.split(" ")
+        if URLS.get(subject_name[0], True).get(subject_name[1], True):
+            result_lines.append(f"⏰ {time} | 📚 {subject} - {URLS[subject_name[0]]['Лк']}")
+            continue
+
         result_lines.append(f"⏰ {time} | 📚 {subject} - {URLS[subject_name[0]][subject_name[1]]}")
 
     return "\n".join(result_lines)
@@ -95,7 +97,7 @@ def get_lessons_by_date(schedule_data, target_date):
 
 if __name__ == "__main__":
     my_schedule = load_and_parse_schedule()
-    print(get_lessons_by_date(my_schedule, "08.12.2025"))
+    print(get_lessons_by_date(my_schedule, "29.12.2025"))
 
 
 

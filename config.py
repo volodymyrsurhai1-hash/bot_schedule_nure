@@ -6,10 +6,13 @@ load_dotenv()
 #TG token
 TOKEN = os.getenv('TOKEN')
 
+
+API_URL = 'https://cist.nure.ua/ias/app/tt/WEB_IAS_TT_GNR_RASP.GEN_GROUP_POTOK_RASP?ATypeDoc=3&Aid_group={}&Aid_potok=0&ADateStart={}&ADateEnd={}&AMultiWorkSheet=0'
 #Посилання на пари
 URLS = {
     'АлГе' : {'Лк' : 'https://meet.google.com/bux-kjqu-akg',
-              'Пз' : 'https://meet.google.com/dzq-xgjk-bmr'},
+              'Пз' : 'https://meet.google.com/dzq-xgjk-bmr',
+              },
     'ДМ' : {'Лк' : 'https://meet.google.com/fqg-axtt-kjf',
               'Пз' : 'https://meet.google.com/fqg-axtt-kjf'},
     'ІМ' : {"Лк":'https://meet.google.com/fmn-qhqd-icc',
