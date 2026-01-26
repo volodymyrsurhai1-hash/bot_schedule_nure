@@ -1,9 +1,12 @@
-from datetime import datetime, timedelta
-import json
 import csv
-from config import API_URL
-import requests
+import json
 import os
+from datetime import datetime, timedelta
+
+import requests
+
+from config import API_URL, URLS
+
 
 class ScheduleAPI:
     def __init__(self):
@@ -12,9 +15,9 @@ class ScheduleAPI:
 
         self.university = self.data.get("university", {})
         self.specialties = self.university.get("faculties", [])
-
-        self.list_of_facs = [i.get("full_name") for i in self.university.get('faculties', [])]
-
+        self.list_of_facs = [
+            i.get("full_name") for i in self.university.get("faculties", [])
+        ]
         self.url = API_URL
 
     def get_specialty(self, specialty_name: str):
@@ -29,20 +32,32 @@ class ScheduleAPI:
                 if faculty_name in j.get("full_name"):
                     return j.get("groups")
 
-    def get_groups(self, groups, name_group: str ):
+    def get_groups(self, groups, name_group: str):
         for i in groups:
             if name_group in i.get("name"):
                 return i.get("id")
 
-    def get_csv_schedule_by_day(self, group_id: int, day: str = datetime.now().strftime('%d.%m.%Y'), day_end: str = (datetime.now() + timedelta(days=182)).strftime('%d.%m.%Y') ):
-        if os.path.exists(f"csvs\\schedule_{group_id}_{day}.csv") == False:
-            self.content = requests.get(f'https://cist.nure.ua/ias/app/tt/WEB_IAS_TT_GNR_RASP.GEN_GROUP_POTOK_RASP?ATypeDoc=3&Aid_group={group_id}&Aid_potok=0&ADateStart={day}&ADateEnd={day_end}&AMultiWorkSheet=0')
+    def get_csv_schedule_by_day(
+        self,
+        group_id: int,
+        day: str = datetime.now().strftime("%d.%m.%Y"),
+        day_end: str = (datetime.now() + timedelta(days=182)).strftime("%d.%m.%Y"),
+    ):
+        if not os.path.exists(f"csvs\\schedule_{group_id}_{day}.csv"):
+            url = (
+                f"https://cist.nure.ua/ias/app/tt/WEB_IAS_TT_GNR_RASP.GEN_GROUP_POTOK_RASP"
+                f"?ATypeDoc=3&Aid_group={group_id}&Aid_potok=0"
+                f"&ADateStart={day}&ADateEnd={day_end}&AMultiWorkSheet=0"
+            )
+            self.content = requests.get(url)
             with open(f"csvs\\schedule_{group_id}.csv", "wb") as f:
                 f.write(self.content.content)
 
-    def get_by_date(self, date: str, group_id: int):
-        with open(f"csvs\\schedule_{group_id}.csv", 'r', encoding='windows-1251') as f:
-            self.table = csv.reader(f, delimiter=',')
+    def get_by_date(self, date, group_id: int):
+        with open(
+            f"csvs\\schedule_{group_id}.csv", "r", encoding="windows-1251"
+        ) as f:
+            self.table = csv.reader(f, delimiter=",")
             next(self.table)
             self.schedule_list = []
 
@@ -55,16 +70,42 @@ class ScheduleAPI:
                 start_time = row[2]
                 end_time = row[4]
 
-                self.schedule_list.append(f"🕒 {start_time}-{end_time}\n📚 {subject}")
+                # Извлекаем название предмета и тип занятия
+                lesson_text = f"🕒 {start_time}-{end_time}\n📚 {subject}"
+
+                # Ищем ссылку для предмета
+                link = self._get_lesson_link(subject)
+                if link:
+                    lesson_text += f"\n🔗 <a href='{link}'>Посилання на пару</a>"
+
+                self.schedule_list.append(lesson_text)
 
             return self.schedule_list
 
-#
+    def _get_lesson_link(self, subject: str):
+        """Получает ссылку на пару из конфига по названию и типу"""
+        # Парсим строку типа "АлГе Лк DL ППМ-25-1;СТСА-25-1"
+        parts = subject.split()
+        if len(parts) < 2:
+            return None
+
+        subject_name = parts[0]  # Например, "АлГе"
+        lesson_type = parts[1]    # Например, "Лк"
+
+        # Ищем в словаре URLS
+        if subject_name in URLS:
+            subject_urls = URLS[subject_name]
+            if lesson_type in subject_urls:
+                return subject_urls[lesson_type]
+
+        return None
+
+
 if __name__ == "__main__":
     api = ScheduleAPI()
     fac = api.get_specialty("ITM")
-    f = api.get_faculties(fac, 'СТСА')
-    id = api.get_groups(f, 'СТСА-25-1')
+    f = api.get_faculties(fac, "СТСА")
+    id = api.get_groups(f, "СТСА-25-1")
     api.get_csv_schedule_by_day(id)
     text = api.get_by_date("19.02.2026", id)
 
