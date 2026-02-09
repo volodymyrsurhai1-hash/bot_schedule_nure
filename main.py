@@ -1,11 +1,8 @@
 import asyncio
 import datetime
-import json
 import logging
-import os
 from contextlib import suppress
 
-import aiofiles
 import pytz
 from aiogram import Bot, Dispatcher, F, Router, types
 from aiogram.client.default import DefaultBotProperties
@@ -20,16 +17,15 @@ from apscheduler.schedulers.asyncio import AsyncIOScheduler
 
 import config
 import parse_csv
+from json_storage import ChatStorage
 
 logging.basicConfig(level=logging.INFO)
-
-CHATS_FILE = "jsons\\chats.json"
-GROUPS_FILE = "jsons\\groups.json"
 
 scheduler = AsyncIOScheduler()
 TZ_UKRAINE = pytz.timezone("Europe/Kiev")
 
 api = parse_csv.ScheduleAPI()
+storage = ChatStorage()
 
 form_router = Router()
 TOKEN = config.TOKEN
@@ -115,7 +111,7 @@ async def get_group_id(callback: types.CallbackQuery, state: FSMContext):
     group_id = api.get_groups(content.get("speciality"), data)
 
     # Зберігаємо id від API у формі {CHAT_ID : API_ID}
-    await save_id(callback.message.chat.id, group_id)
+    await storage.save_chat_group(callback.message.chat.id, group_id)
 
     # Скачиваем расписание для этой группы
     api.get_csv_schedule_by_day(group_id)
@@ -141,13 +137,12 @@ async def get_group_id(callback: types.CallbackQuery, state: FSMContext):
 
 
 """Обробка основних команд бота"""
-
-
 @dp.message(F.text == "📅 На сьогодні")
 @dp.message(Command("today"), F.chat.type.in_({"group", "supergroup"}))
 async def cmd_today_group(message: types.Message):
-    id = await get_chat_group_id(message.chat.id)
-    lessons = api.get_by_date(datetime.datetime.now(TZ_UKRAINE), id)
+    group_id = await storage.get_group_id(message.chat.id)
+    date = datetime.datetime.now().strftime("%d.%m.%Y")
+    lessons = api.get_by_date(date, group_id)
 
     if not lessons:
         response_text = "Пар нема!"
@@ -170,7 +165,7 @@ async def cmd_week(message: types.Message):
     day_index = 0 if current_weekday > 4 else current_weekday
 
     date_str = week_dates[day_index]
-    lessons = api.get_by_date(date_str, await get_chat_group_id(message.chat.id))
+    lessons = api.get_by_date(date_str, await storage.get_group_id(message.chat.id))
 
     if not lessons:
         lessons_text = "Пар нема!"
@@ -191,7 +186,7 @@ async def on_week_click(callback: types.CallbackQuery):
     date_str = week_dates[day_index]
 
     lessons = api.get_by_date(
-        date_str, await get_chat_group_id(callback.message.chat.id)
+        date_str, await storage.get_group_id(callback.message.chat.id)
     )
 
     if not lessons:
@@ -241,18 +236,18 @@ def get_week_dates():
 
 async def update_all_schedules():
     """Обновляет расписание для всех групп"""
-    current_chats = await get_all_chats()
+    current_chats = await storage.get_all_chats()
     for chat_id in current_chats:
-        group_id = await get_chat_group_id(chat_id)
+        group_id = await storage.get_group_id(chat_id)
         if group_id:
             api.get_csv_schedule_by_day(group_id)
 
 
 async def send_morning_schedule():
     """Отправляет утреннее расписание во все чаты"""
-    current_chats = await get_all_chats()
+    current_chats = await storage.get_all_chats()
     for chat_id in current_chats:
-        group_id = await get_chat_group_id(chat_id)
+        group_id = await storage.get_group_id(chat_id)
         if not group_id:
             continue
 
@@ -262,7 +257,7 @@ async def send_morning_schedule():
 
         lessons_text = "\n\n".join(lessons)
         message_bot = await bot.send_message(
-            chat_id=chat_id,
+            chat_id=int(chat_id),
             text=f"☀️  <b> Доброго ранку! Розклад на сьогодні:</b>\n\n{lessons_text}",
             parse_mode="HTML",
         )
@@ -283,57 +278,6 @@ def get_keyboard(list, adj):
     builder.adjust(adj)
     return builder.as_markup()
 
-async def save_id(chat_id, group_id):
-    # Створюємо папку, якщо її немає
-    os.makedirs(os.path.dirname(CHATS_FILE), exist_ok=True)
-
-    chats = {}
-    # Читаємо існуючий файл
-    if os.path.exists(CHATS_FILE):
-        try:
-            async with aiofiles.open(CHATS_FILE, "r", encoding="utf-8") as f:
-                chats = json.loads(await f.read())
-        except Exception:
-            pass
-
-    # Оновлюємо або додаємо запис
-    chats[str(chat_id)] = group_id
-
-    # Асинхронно записуємо назад
-    async with aiofiles.open(CHATS_FILE, "w", encoding="utf-8") as f:
-        await f.write(json.dumps(chats, indent=4, ensure_ascii=False))
-
-
-async def get_chat_group_id(chat_id):
-    if not os.path.exists(CHATS_FILE):
-        return None
-
-    try:
-        async with aiofiles.open(CHATS_FILE, "r", encoding="utf-8") as f:
-            content = await f.read()
-            chats = json.loads(content)
-
-        return chats.get(str(chat_id))
-
-    except (FileNotFoundError, json.JSONDecodeError):
-        return None
-
-
-async def get_all_chats():
-    """
-    Возвращает словарь всех подписок: {"chat_id": group_id}
-    """
-    if not os.path.exists(CHATS_FILE):
-        return {}
-
-    try:
-        async with aiofiles.open(CHATS_FILE, "r", encoding="utf-8") as f:
-            content = await f.read()
-            chats = json.loads(content)
-            return chats
-    except Exception:
-        return {}
-
 async def main():
     print("Бот запущений...")
 
@@ -350,7 +294,7 @@ async def main():
     scheduler.add_job(
         send_morning_schedule,
         trigger="cron",
-        hour=7,
+        hour=9,
         minute=0,
         timezone=TZ_UKRAINE,
     )

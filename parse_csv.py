@@ -54,6 +54,9 @@ class ScheduleAPI:
                 f.write(self.content.content)
 
     def get_by_date(self, date, group_id: int):
+        # Получаем название группы для фильтрации ссылок
+        group_name = self._get_group_name(group_id)
+
         with open(
             f"csvs\\schedule_{group_id}.csv", "r", encoding="windows-1251"
         ) as f:
@@ -66,21 +69,43 @@ class ScheduleAPI:
                     continue
                 if row[1] != date:
                     continue
-                subject = row[11]
+                subject_full = row[11]
                 start_time = row[2]
                 end_time = row[4]
 
-                # Извлекаем название предмета и тип занятия
+                # Обрезаем строку - оставляем только название и тип пары
+                # Например: "БЗВП Лк DL ЕЕК-24-1;СТСА-24-1;..." -> "БЗВП Лк DL"
+                subject_parts = subject_full.split()
+                if len(subject_parts) >= 3:
+                    # Берем первые 3 части (название + тип + DL/очно)
+                    subject = " ".join(subject_parts[:3])
+                elif len(subject_parts) >= 2:
+                    # Если нет третьей части, берем первые 2
+                    subject = " ".join(subject_parts[:2])
+                else:
+                    subject = subject_full
+
+                # Формируем текст
                 lesson_text = f"🕒 {start_time}-{end_time}\n📚 {subject}"
 
-                # Ищем ссылку для предмета
-                link = self._get_lesson_link(subject)
-                if link:
-                    lesson_text += f"\n🔗 <a href='{link}'>Посилання на пару</a>"
+                # Ищем ссылку для предмета только для группы СТСА-25-1
+                if group_name == "СТСА-25-1":
+                    link = self._get_lesson_link(subject_full)
+                    if link:
+                        lesson_text += f"\n🔗 <a href='{link}'>Посилання на пару</a>"
 
                 self.schedule_list.append(lesson_text)
 
             return self.schedule_list
+
+    def _get_group_name(self, group_id: int):
+        """Получает название группы по ее ID"""
+        for faculty in self.specialties:
+            for direction in faculty.get("directions", []):
+                for group in direction.get("groups", []):
+                    if group.get("id") == group_id:
+                        return group.get("name")
+        return None
 
     def _get_lesson_link(self, subject: str):
         """Получает ссылку на пару из конфига по названию и типу"""
