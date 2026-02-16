@@ -1,5 +1,6 @@
 import json
 import os
+from pathlib import Path
 
 import aiofiles
 
@@ -7,13 +8,13 @@ import aiofiles
 class ChatStorage:
     """Класс для работы с JSON хранилищем чатов и групп"""
 
-    def __init__(self, file_path: str = "jsons\\chats.json"):
-        self.file_path = file_path
+    def __init__(self, file_path: str = "jsons/chats.json"):
+        self.file_path = Path(file_path)
         self._ensure_directory()
 
     def _ensure_directory(self):
         """Создает директорию для JSON файлов если её нет"""
-        os.makedirs(os.path.dirname(self.file_path), exist_ok=True)
+        self.file_path.parent.mkdir(parents=True, exist_ok=True)
 
     async def save_chat_group(self, chat_id: int, group_id: int):
         """

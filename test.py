@@ -22,7 +22,7 @@ import pytz
 
 logging.basicConfig(level=logging.INFO)
 
-CHATS_FILE = "jsons\chats.json"
+CHATS_FILE = os.path.join("jsons", "chats.json")
 
 scheduler = AsyncIOScheduler()
 schedule = parser.load_and_parse_schedule()

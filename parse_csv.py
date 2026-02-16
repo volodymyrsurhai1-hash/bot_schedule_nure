@@ -10,7 +10,8 @@ from config import API_URL, URLS
 
 class ScheduleAPI:
     def __init__(self):
-        with open("jsons\\groups.json", "r", encoding="utf-8") as f:
+        groups_path = os.path.join("jsons", "groups.json")
+        with open(groups_path, "r", encoding="utf-8") as f:
             self.data = json.load(f)
 
         self.university = self.data.get("university", {})
@@ -43,23 +44,26 @@ class ScheduleAPI:
         day: str = datetime.now().strftime("%d.%m.%Y"),
         day_end: str = (datetime.now() + timedelta(days=182)).strftime("%d.%m.%Y"),
     ):
-        if not os.path.exists(f"csvs\\schedule_{group_id}_{day}.csv"):
+        csvs_dir = "csvs"
+        os.makedirs(csvs_dir, exist_ok=True)
+
+        schedule_path = os.path.join(csvs_dir, f"schedule_{group_id}.csv")
+        if not os.path.exists(schedule_path):
             url = (
                 f"https://cist.nure.ua/ias/app/tt/WEB_IAS_TT_GNR_RASP.GEN_GROUP_POTOK_RASP"
                 f"?ATypeDoc=3&Aid_group={group_id}&Aid_potok=0"
                 f"&ADateStart={day}&ADateEnd={day_end}&AMultiWorkSheet=0"
             )
             self.content = requests.get(url)
-            with open(f"csvs\\schedule_{group_id}.csv", "wb") as f:
+            with open(schedule_path, "wb") as f:
                 f.write(self.content.content)
 
     def get_by_date(self, date, group_id: int):
         # Получаем название группы для фильтрации ссылок
         group_name = self._get_group_name(group_id)
 
-        with open(
-            f"csvs\\schedule_{group_id}.csv", "r", encoding="windows-1251"
-        ) as f:
+        schedule_path = os.path.join("csvs", f"schedule_{group_id}.csv")
+        with open(schedule_path, "r", encoding="windows-1251") as f:
             self.table = csv.reader(f, delimiter=",")
             next(self.table)
             self.schedule_list = []
