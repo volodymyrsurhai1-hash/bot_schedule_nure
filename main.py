@@ -177,6 +177,9 @@ async def cmd_week(message: types.Message):
     message_bot = await message.answer(
         text, reply_markup=get_week_keyboard(day_index), parse_mode="HTML"
     )
+    asyncio.create_task(delete_later(message_bot, 100))
+    asyncio.create_task(delete_later(message, 60))
+
 
 @dp.callback_query(F.data.startswith("week_"))
 async def on_week_click(callback: types.CallbackQuery):
