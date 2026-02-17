@@ -4,11 +4,11 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="16ab927c-2d0b-41ee-a5bf-1e67d0fca17d" name="Changes" comment="готово! но тнребуется рефакторинг кода!">
+    <list default="true" id="16ab927c-2d0b-41ee-a5bf-1e67d0fca17d" name="Changes" comment="adopted updated for linux">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/json_storage.py" beforeDir="false" afterPath="$PROJECT_DIR$/json_storage.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/config.py" beforeDir="false" afterPath="$PROJECT_DIR$/config.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/main.py" beforeDir="false" afterPath="$PROJECT_DIR$/main.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/parse_csv.py" beforeDir="false" afterPath="$PROJECT_DIR$/parse_csv.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/test.py" beforeDir="false" afterPath="$PROJECT_DIR$/test.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -101,7 +101,7 @@
   <component name="SharedIndexes">
     <attachedChunks>
       <set>
-        <option value="bundled-python-sdk-4e2b1448bda8-9a97661f3031-com.jetbrains.pycharm.pro.sharedIndexes.bundled-PY-252.27397.106" />
+        <option value="bundled-python-sdk-07523f343e4f-968fe969f28a-com.jetbrains.pycharm.pro.sharedIndexes.bundled-PY-252.28539.27" />
       </set>
     </attachedChunks>
   </component>
@@ -201,7 +201,15 @@
       <option name="project" value="LOCAL" />
       <updated>1770624633932</updated>
     </task>
-    <option name="localTasksCounter" value="12" />
+    <task id="LOCAL-00012" summary="adopted updated for linux">
+      <option name="closed" value="true" />
+      <created>1771238395896</created>
+      <option name="number" value="00012" />
+      <option name="presentableId" value="LOCAL-00012" />
+      <option name="project" value="LOCAL" />
+      <updated>1771238395896</updated>
+    </task>
+    <option name="localTasksCounter" value="13" />
     <servers />
   </component>
   <component name="VcsManagerConfiguration">
@@ -212,6 +220,7 @@
     <MESSAGE value="fixed and upgraded version 1.0" />
     <MESSAGE value="Added some keyboards, it has became more convenient" />
     <MESSAGE value="готово! но тнребуется рефакторинг кода!" />
-    <option name="LAST_COMMIT_MESSAGE" value="готово! но тнребуется рефакторинг кода!" />
+    <MESSAGE value="adopted updated for linux" />
+    <option name="LAST_COMMIT_MESSAGE" value="adopted updated for linux" />
   </component>
 </project>

@@ -5,7 +5,7 @@ from datetime import datetime, timedelta
 
 import requests
 
-from config import API_URL, URLS
+from config import API_URL
 
 
 class ScheduleAPI:
@@ -59,9 +59,6 @@ class ScheduleAPI:
                 f.write(self.content.content)
 
     def get_by_date(self, date, group_id: int):
-        # Получаем название группы для фильтрации ссылок
-        group_name = self._get_group_name(group_id)
-
         schedule_path = os.path.join("csvs", f"schedule_{group_id}.csv")
         with open(schedule_path, "r", encoding="windows-1251") as f:
             self.table = csv.reader(f, delimiter=",")
@@ -92,42 +89,9 @@ class ScheduleAPI:
                 # Формируем текст
                 lesson_text = f"🕒 {start_time}-{end_time}\n📚 {subject}"
 
-                # Ищем ссылку для предмета только для группы СТСА-25-1
-                if group_name == "СТСА-25-1":
-                    link = self._get_lesson_link(subject_full)
-                    if link:
-                        lesson_text += f"\n🔗 <a href='{link}'>Посилання на пару</a>"
-
                 self.schedule_list.append(lesson_text)
 
             return self.schedule_list
-
-    def _get_group_name(self, group_id: int):
-        """Получает название группы по ее ID"""
-        for faculty in self.specialties:
-            for direction in faculty.get("directions", []):
-                for group in direction.get("groups", []):
-                    if group.get("id") == group_id:
-                        return group.get("name")
-        return None
-
-    def _get_lesson_link(self, subject: str):
-        """Получает ссылку на пару из конфига по названию и типу"""
-        # Парсим строку типа "АлГе Лк DL ППМ-25-1;СТСА-25-1"
-        parts = subject.split()
-        if len(parts) < 2:
-            return None
-
-        subject_name = parts[0]  # Например, "АлГе"
-        lesson_type = parts[1]    # Например, "Лк"
-
-        # Ищем в словаре URLS
-        if subject_name in URLS:
-            subject_urls = URLS[subject_name]
-            if lesson_type in subject_urls:
-                return subject_urls[lesson_type]
-
-        return None
 
 
 if __name__ == "__main__":

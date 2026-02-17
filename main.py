@@ -16,6 +16,7 @@ from aiogram.utils.keyboard import InlineKeyboardBuilder, ReplyKeyboardBuilder
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 
 import config
+from config import DELETE_MESSAGE_TIMEOUT
 import parse_csv
 from json_storage import ChatStorage
 
@@ -57,7 +58,7 @@ async def command_start(message: types.Message, state: FSMContext):
             reply_markup=keyboard,
         )
 
-    await delete_later(message_bot, 400)
+    await delete_later(message_bot, DELETE_MESSAGE_TIMEOUT)
 
 @form_router.callback_query(Form.faculty)
 async def get_specialty(callback: types.CallbackQuery, state: FSMContext):
@@ -132,8 +133,8 @@ async def get_group_id(callback: types.CallbackQuery, state: FSMContext):
         "Або ж скористуватись кнопками", reply_markup=keyboard
     )
 
-    await delete_later(message_frombot, 160)
-    await delete_later(message_keyboard, 160)
+    await delete_later(message_frombot, DELETE_MESSAGE_TIMEOUT)
+    await delete_later(message_keyboard, DELETE_MESSAGE_TIMEOUT)
 
 
 """Обробка основних команд бота"""
@@ -152,8 +153,8 @@ async def cmd_today_group(message: types.Message):
 
     message_bot = await message.reply(response_text, parse_mode=ParseMode.HTML)
 
-    asyncio.create_task(delete_later(message_bot, 100))
-    asyncio.create_task(delete_later(message, 100))
+    asyncio.create_task(delete_later(message_bot, DELETE_MESSAGE_TIMEOUT))
+    asyncio.create_task(delete_later(message, DELETE_MESSAGE_TIMEOUT))
 
 @dp.message(F.text == "🗓 На тиждень")
 @dp.message(Command("week"))
@@ -177,8 +178,8 @@ async def cmd_week(message: types.Message):
     message_bot = await message.answer(
         text, reply_markup=get_week_keyboard(day_index), parse_mode="HTML"
     )
-    asyncio.create_task(delete_later(message_bot, 100))
-    asyncio.create_task(delete_later(message, 60))
+    asyncio.create_task(delete_later(message_bot, DELETE_MESSAGE_TIMEOUT))
+    asyncio.create_task(delete_later(message, DELETE_MESSAGE_TIMEOUT))
 
 
 @dp.callback_query(F.data.startswith("week_"))
@@ -255,7 +256,7 @@ async def send_morning_schedule():
             continue
 
         lessons = api.get_by_date(datetime.datetime.now(), group_id)
-        if not lessons:
+        if lessons is None:
             continue
 
         lessons_text = "\n\n".join(lessons)
@@ -264,11 +265,37 @@ async def send_morning_schedule():
             text=f"☀️  <b> Доброго ранку! Розклад на сьогодні:</b>\n\n{lessons_text}",
             parse_mode="HTML",
         )
-        asyncio.create_task(delete_later(message_bot, 100))
+
+        # Закрепляем сообщение
+        with suppress(TelegramBadRequest):
+            await bot.pin_chat_message(
+                chat_id=int(chat_id),
+                message_id=message_bot.message_id,
+                disable_notification=True
+            )
+
+        # Удаляем в конце дня
+        asyncio.create_task(delete_at_end_of_day(message_bot))
 
 
 async def delete_later(message, time):
     await asyncio.sleep(time)
+    with suppress(TelegramBadRequest):
+        await message.delete()
+
+
+async def delete_at_end_of_day(message):
+    """Удаляет сообщение в конце дня (23:59)"""
+    now = datetime.datetime.now(TZ_UKRAINE)
+    end_of_day = now.replace(hour=23, minute=59, second=59, microsecond=0)
+
+    # Если уже поздно, удаляем завтра
+    if now >= end_of_day:
+        end_of_day += datetime.timedelta(days=1)
+
+    sleep_seconds = (end_of_day - now).total_seconds()
+    await asyncio.sleep(sleep_seconds)
+
     with suppress(TelegramBadRequest):
         await message.delete()
 
