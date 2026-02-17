@@ -255,8 +255,9 @@ async def send_morning_schedule():
         if not group_id:
             continue
 
-        lessons = api.get_by_date(datetime.datetime.now(), group_id)
-        if lessons is None:
+        date = datetime.datetime.now().strftime("%d.%m.%Y")
+        lessons = api.get_by_date(date, group_id)
+        if not lessons:
             continue
 
         lessons_text = "\n\n".join(lessons)
@@ -324,8 +325,8 @@ async def main():
     scheduler.add_job(
         send_morning_schedule,
         trigger="cron",
-        hour=9,
-        minute=0,
+        hour=15,
+        minute=22,
         timezone=TZ_UKRAINE,
     )
 
