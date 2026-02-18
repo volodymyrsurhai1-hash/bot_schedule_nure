@@ -5,3 +5,4 @@ aiogram
 dotenv
 pytz
 aiofiles
+aiogram-calendar

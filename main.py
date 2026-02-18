@@ -5,6 +5,7 @@ from contextlib import suppress
 
 import pytz
 from aiogram import Bot, Dispatcher, F, Router, types
+from aiogram_calendar import SimpleCalendar, SimpleCalendarCallback
 from aiogram.client.default import DefaultBotProperties
 from aiogram.enums import ParseMode
 from aiogram.exceptions import TelegramBadRequest
@@ -29,15 +30,21 @@ api = parse_csv.ScheduleAPI()
 storage = ChatStorage()
 
 form_router = Router()
+reminder_router = Router()
+
 TOKEN = config.TOKEN
 bot = Bot(token=TOKEN)
 dp = Dispatcher()
 
-
+# Классы для состояний опроса
 class Form(StatesGroup):
     faculty = State()
     speciality = State()
     group = State()
+
+class Reminder(StatesGroup):
+    text = State()
+    date = State()
 
 
 @form_router.message(CommandStart())
@@ -59,6 +66,7 @@ async def command_start(message: types.Message, state: FSMContext):
         )
 
     await delete_later(message_bot, DELETE_MESSAGE_TIMEOUT)
+    await delete_later(message, DELETE_MESSAGE_TIMEOUT)
 
 @form_router.callback_query(Form.faculty)
 async def get_specialty(callback: types.CallbackQuery, state: FSMContext):
@@ -121,12 +129,13 @@ async def get_group_id(callback: types.CallbackQuery, state: FSMContext):
     builder = ReplyKeyboardBuilder()
     builder.button(text="📅 На сьогодні")
     builder.button(text="🗓 На тиждень")
+    builder.button(text='🔔 Нагадування')
     keyboard = builder.as_markup(
         resize_keyboard=True, input_field_placeholder="Обери команду"
     )
 
     message_frombot = await callback.message.edit_text(
-        text="<b>Готово!</b>\n\n Тепер ви можете користуватися усіма функціями бота, наприклад: /today, /week",
+        text="<b>Готово!</b>\n\n Тепер ви можете користуватися усіма функціями бота, наприклад: /today, /week, /reminder",
         parse_mode=ParseMode.HTML,
     )
     message_keyboard = await callback.message.reply(
@@ -155,6 +164,93 @@ async def cmd_today_group(message: types.Message):
 
     asyncio.create_task(delete_later(message_bot, DELETE_MESSAGE_TIMEOUT))
     asyncio.create_task(delete_later(message, DELETE_MESSAGE_TIMEOUT))
+
+@reminder_router.message(F.text == '🔔 Нагадування')
+@reminder_router.message(Command("reminder"))
+async def cmd_reminder(message: types.Message, state: FSMContext):
+    """Первое состоянее опроса для напоминания"""
+    message_text = await message.reply("Напишіть текст нагадування!")
+    await state.set_state(Reminder.text)
+    asyncio.create_task(delete_later(message_text, DELETE_MESSAGE_TIMEOUT))
+    asyncio.create_task(delete_later(message, DELETE_MESSAGE_TIMEOUT))
+
+
+@reminder_router.message(Reminder.text)
+async def get_reminder_text(message: types.Message, state: FSMContext):
+    await state.update_data(reminder_text=message.text)
+    calendar = SimpleCalendar()
+
+    message_bot = await message.answer(
+        "📅 <b>Оберіть дату:</b>",
+        parse_mode=ParseMode.HTML,
+        reply_markup=await calendar.start_calendar()
+    )
+
+    await state.set_state(Reminder.date)
+    asyncio.create_task(delete_later(message_bot, DELETE_MESSAGE_TIMEOUT))
+    asyncio.create_task(delete_later(message, DELETE_MESSAGE_TIMEOUT))
+
+
+@reminder_router.callback_query(SimpleCalendarCallback.filter(), Reminder.date)
+async def process_calendar_date(callback: types.CallbackQuery, callback_data: dict, state: FSMContext):
+    calendar = SimpleCalendar()
+
+    selected, date_obj = await calendar.process_selection(callback, callback_data)
+
+    if selected:
+        data = await state.get_data()
+        text = data.get("reminder_text")
+
+        default_time = datetime.time(hour=9, minute=0)
+
+        run_date = datetime.datetime.combine(date_obj.date(), default_time)
+
+        now = datetime.datetime.now()
+        if run_date < now:
+            if run_date.date() == now.date():
+                run_date = now + datetime.timedelta(minutes=1)
+                message_bot1 = await callback.message.answer("⚠️ Час 09:00 вже пройшов, нагадаю через хвилину!")
+                asyncio.create_task(delete_later(message_bot1, DELETE_MESSAGE_TIMEOUT))
+            else:
+                message_bot2 = await callback.message.answer("⚠️ Ви обрали дату в минулому! Спробуйте заново /reminder")
+                asyncio.create_task(delete_later(message_bot2, DELETE_MESSAGE_TIMEOUT))
+                return
+
+        scheduler.add_job(
+            send_reminder_job,
+            trigger="date",
+            run_date=run_date,
+            kwargs={"chat_id": callback.message.chat.id, "text": text},
+            timezone=TZ_UKRAINE
+        )
+
+        message_bot = await callback.message.edit_text(
+            f"✅ <b>Готово!</b>\n"
+            f"Нагадаю: {run_date.strftime('%d.%m.%Y в %H:%M')}\n"
+            f"Текст: {text}",
+            parse_mode="HTML"
+        )
+
+        await state.clear()
+
+        asyncio.create_task(delete_later(message_bot, DELETE_MESSAGE_TIMEOUT))
+
+
+
+async def send_reminder_job(chat_id: int, text: str):
+    try:
+        message_bot = await bot.send_message(
+            chat_id=chat_id,
+            text=f"🔔 <b>НАГАДУВАННЯ:</b>\n\n{text}",
+            parse_mode="HTML"
+        )
+        asyncio.create_task(delete_later(message_bot, DELETE_MESSAGE_TIMEOUT))
+
+    except Exception as e:
+        print(f"Ошибка отправки напоминания: {e}")
+
+
+
 
 @dp.message(F.text == "🗓 На тиждень")
 @dp.message(Command("week"))
@@ -334,6 +430,7 @@ async def main():
     await update_all_schedules()
 
     scheduler.start()
+    dp.include_router(reminder_router)
     dp.include_router(form_router)
     await dp.start_polling(bot)
 
