@@ -421,8 +421,8 @@ async def main():
     scheduler.add_job(
         send_morning_schedule,
         trigger="cron",
-        hour=9,
-        minute=0,
+        hour=18,
+        minute=37,
         timezone=TZ_UKRAINE,
     )
 
