@@ -142,9 +142,6 @@ async def get_group_id(callback: types.CallbackQuery, state: FSMContext):
         "Або ж скористуватись кнопками", reply_markup=keyboard
     )
 
-    await delete_later(message_frombot, DELETE_MESSAGE_TIMEOUT)
-    await delete_later(message_keyboard, DELETE_MESSAGE_TIMEOUT)
-
 
 """Обробка основних команд бота"""
 @dp.message(F.text == "📅 На сьогодні")
