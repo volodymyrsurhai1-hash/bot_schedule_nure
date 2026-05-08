@@ -154,7 +154,7 @@ async def cmd_today_group(message: types.Message):
     if not lessons:
         response_text = "Пар нема!"
     else:
-        lessons_text = "\n\n".join(lessons)
+        lessons_text = "\n\n".join(lesson.to_text() for lesson in lessons)
         response_text = f"📅 <b>Розклад на сьогодні:</b>\n\n{lessons_text}"
 
     message_bot = await message.reply(response_text, parse_mode=ParseMode.HTML)
@@ -264,7 +264,7 @@ async def cmd_week(message: types.Message):
     if not lessons:
         lessons_text = "Пар нема!"
     else:
-        lessons_text = "\n\n".join(lessons)
+        lessons_text = "\n\n".join(lesson.to_text() for lesson in lessons)
 
     text = f"📅 <b>Розклад на тиждень</b>\nДата: {date_str} (День {day_index + 1})\n\n{lessons_text}"
 
@@ -289,7 +289,7 @@ async def on_week_click(callback: types.CallbackQuery):
     if not lessons:
         lessons_text = "Пар нема!"
     else:
-        lessons_text = "\n\n".join(lessons)
+        lessons_text = "\n\n".join(lesson.to_text() for lesson in lessons)
 
     new_text = f"📅 <b>Розклад на тиждень</b>\nДата: {date_str}\n\n{lessons_text}"
 
@@ -353,7 +353,7 @@ async def send_morning_schedule():
         if not lessons:
             continue
 
-        lessons_text = "\n\n".join(lessons)
+        lessons_text = "\n\n".join(lesson.to_text() for lesson in lessons)
         message_bot = await bot.send_message(
             chat_id=int(chat_id),
             text=f"☀️  <b> Доброго ранку! Розклад на сьогодні:</b>\n\n{lessons_text}",
