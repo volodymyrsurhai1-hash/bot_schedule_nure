@@ -85,7 +85,11 @@ class ScheduleDownloader:
         schedule_path = CSV_DIR / f"schedule_{group_id}.csv"
 
         if schedule_path.exists():
-            return
+            # Если файл обновлялся сегодня, не скачиваем
+            mtime = schedule_path.stat().st_mtime
+            modified_date = datetime.fromtimestamp(mtime).date()
+            if modified_date == datetime.now().date():
+                return
 
         url = API_URL.format(group_id, day, day_end)
         try:
@@ -200,7 +204,7 @@ if __name__ == "__main__":
     api = ScheduleAPI()
     group_id = api.get_group_id("ITM", "СТСА", "СТСА-25-1")
     api.get_csv_schedule_by_day(group_id)
-    lessons = api.get_by_date("19.09.2027", group_id)
+    lessons = api.get_by_date("1.09.2026", group_id)
 
     for lesson in lessons:
         print(lesson)
