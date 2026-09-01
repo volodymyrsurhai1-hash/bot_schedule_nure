@@ -18,6 +18,8 @@ CSV_MIN_COLUMNS = 12
 CSV_ENCODING = "windows-1251"
 GROUPS_JSON_PATH = Path("jsons") / "groups.json"
 CSV_DIR = Path("csvs")
+# API эндпойнт для актуального списка групп
+GROUPS_API_URL = "https://cist.nure.ua/ias/app/tt/P_API_GROUP_JSON"
 
 
 @dataclass
@@ -38,8 +40,8 @@ class GroupRepository:
     """Відповідає за читання JSON-файлу груп та пошук group_id."""
 
     def __init__(self, groups_path: Path = GROUPS_JSON_PATH) -> None:
-        if not groups_path.exists():
-            raise RuntimeError(f"Файл груп не знайдено: {groups_path}")
+        self.groups_path = groups_path
+        self._ensure_groups_file()
 
         with open(groups_path, "r", encoding="utf-8") as f:
             data = json.load(f)
@@ -49,6 +51,36 @@ class GroupRepository:
         self.list_of_facs = [
             faculty.get("full_name") for faculty in self.specialties
         ]
+        
+    def _ensure_groups_file(self) -> None:
+        """Перевіряє наявність groups.json. Якщо немає або застарів (старше 30 днів), завантажує новий."""
+        needs_download = False
+        
+        if not self.groups_path.exists():
+            needs_download = True
+        else:
+            mtime = self.groups_path.stat().st_mtime
+            file_date = datetime.fromtimestamp(mtime)
+            # Оновлюємо список груп кожні 30 днів
+            if datetime.now() - file_date > timedelta(days=30):
+                needs_download = True
+                
+        if needs_download:
+            self.download_groups()
+
+    def download_groups(self) -> None:
+        """Завантажує найсвіжіший JSON з CIST NURE та зберігає локально."""
+        self.groups_path.parent.mkdir(exist_ok=True)
+        try:
+            response = requests.get(GROUPS_API_URL, timeout=15)
+            response.raise_for_status()
+            data = response.json()
+            with open(self.groups_path, "w", encoding="utf-8") as f:
+                json.dump(data, f, ensure_ascii=False, indent=2)
+        except requests.exceptions.RequestException as e:
+            if not self.groups_path.exists():
+                raise RuntimeError(f"Не вдалося завантажити групи ({e}) і локального файлу не існує.")
+            # Якщо файл існує, просто проковтнемо помилку (можливо, CIST впав)
 
     def get_group_id(
         self, specialty_name: str, faculty_name: str, name_group: str
@@ -166,6 +198,12 @@ class ScheduleAPI:
         self.specialties = self._repo.specialties
         self.list_of_facs = self._repo.list_of_facs
 
+    def update_groups(self):
+        """Примусово оновлює список груп (JSON) з сайту CIST"""
+        self._repo.download_groups()
+        # Потрібно оновити оперативну пам'ять
+        self.__init__()
+
     def get_specialty(self, specialty_name: str):
         for i in self.specialties:
             db_name = i.get("full_name")
@@ -206,19 +244,21 @@ if __name__ == "__main__":
     sys.stdout.reconfigure(encoding='utf-8')
     
     api = ScheduleAPI()
-    group_id = api.get_group_id("ITM", "СТСА", "СТСА-25-1")
-    
-    # We explicitly pass the current date for downloading
-    today_str = datetime.now().strftime("%d.%m.%Y")
-    
-    api.get_csv_schedule_by_day(group_id, day=today_str)
-    
-    # Let's request today's schedule
-    lessons = api.get_by_date(today_str, group_id)
-
-    print(f"Розклад на {today_str} для групи {group_id}:")
-    if not lessons:
-        print("Пар немає!")
+    group_id = api.get_group_id("ITM", "СТСА", "СТСА-26-1")
+    if not group_id:
+        print("Группа СТСА-26-1 не найдена!")
     else:
-        for lesson in lessons:
-            print(lesson)
+        # We explicitly pass the current date for downloading
+        today_str = datetime.now().strftime("%d.%m.%Y")
+        
+        api.get_csv_schedule_by_day(group_id, day=today_str)
+        
+        # Let's request today's schedule
+        lessons = api.get_by_date(today_str, group_id)
+
+        print(f"Розклад на {today_str} для групи {group_id}:")
+        if not lessons:
+            print("Пар немає!")
+        else:
+            for lesson in lessons:
+                print(lesson)
