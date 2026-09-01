@@ -201,10 +201,24 @@ class ScheduleAPI:
 
 
 if __name__ == "__main__":
+    import sys
+    # For windows terminal compatibility
+    sys.stdout.reconfigure(encoding='utf-8')
+    
     api = ScheduleAPI()
     group_id = api.get_group_id("ITM", "СТСА", "СТСА-25-1")
-    api.get_csv_schedule_by_day(group_id)
-    lessons = api.get_by_date("1.09.2026", group_id)
+    
+    # We explicitly pass the current date for downloading
+    today_str = datetime.now().strftime("%d.%m.%Y")
+    
+    api.get_csv_schedule_by_day(group_id, day=today_str)
+    
+    # Let's request today's schedule
+    lessons = api.get_by_date(today_str, group_id)
 
-    for lesson in lessons:
-        print(lesson)
+    print(f"Розклад на {today_str} для групи {group_id}:")
+    if not lessons:
+        print("Пар немає!")
+    else:
+        for lesson in lessons:
+            print(lesson)
