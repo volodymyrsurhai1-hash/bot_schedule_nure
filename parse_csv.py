@@ -162,6 +162,23 @@ class ScheduleAPI:
         self.specialties = self._repo.specialties
         self.list_of_facs = self._repo.list_of_facs
 
+    def get_specialty(self, specialty_name: str):
+        for i in self.specialties:
+            db_name = i.get("full_name")
+            if specialty_name in db_name:
+                yield i.get("directions")
+
+    def get_faculties(self, faculties, faculty_name: str):
+        for i in faculties:
+            for j in i:
+                if faculty_name in j.get("full_name"):
+                    return j.get("groups")
+
+    def get_groups(self, groups, name_group: str):
+        for i in groups:
+            if name_group in i.get("name"):
+                return i.get("id")
+
     def get_group_id(
         self, specialty_name: str, faculty_name: str, name_group: str
     ) -> int | None:
@@ -183,7 +200,7 @@ if __name__ == "__main__":
     api = ScheduleAPI()
     group_id = api.get_group_id("ITM", "СТСА", "СТСА-25-1")
     api.get_csv_schedule_by_day(group_id)
-    lessons = api.get_by_date("19.02.2026", group_id)
+    lessons = api.get_by_date("19.09.2027", group_id)
 
     for lesson in lessons:
         print(lesson)
